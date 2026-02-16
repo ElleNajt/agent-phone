@@ -200,7 +200,9 @@ func groupSessionsByProject(sessions []string) map[string][]string {
 				dir := strings.TrimPrefix(line, "AGENT_TMUX_DIR=")
 				// Make path relative to home directory
 				home, _ := os.UserHomeDir()
-				if strings.HasPrefix(dir, home) {
+				if dir == home {
+					project = "~"
+				} else if strings.HasPrefix(dir, home+"/") {
 					project = strings.TrimPrefix(dir, home+"/")
 				} else {
 					project = dir
@@ -600,7 +602,9 @@ func handleSpawnProject(w http.ResponseWriter, r *http.Request) {
 	// Resolve project path - either relative to home or absolute
 	var dir string
 	home, _ := os.UserHomeDir()
-	if strings.HasPrefix(project, "/") {
+	if project == "~" {
+		dir = home
+	} else if strings.HasPrefix(project, "/") {
 		dir = project
 	} else {
 		dir = filepath.Join(home, project)

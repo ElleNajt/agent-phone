@@ -12,8 +12,8 @@ fi
 CMD="$1"
 shift
 
-# Word lists for random names
-ADJECTIVES=(swift bright calm deep quick sharp warm cool fresh bold)
+# Word lists for random names (no overlap)
+ADJECTIVES=(swift bright calm quick sharp warm cool fresh bold gentle)
 NOUNS=(oak fox elm ray dew ash fern hawk moss pine)
 
 # Pick random words

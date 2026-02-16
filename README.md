@@ -2,6 +2,8 @@
 
 Access terminal sessions from your phone's browser. Works with Claude Code, or any CLI tool.
 
+**Warning:** This allows your phone to control your computer through your Tailnet. Use at your own peril and review the code if you're nervous.
+
 ![Phone and computer showing the same Claude session](image_on_phone.png)
 ![Desktop view](image_on_computer.png)
 ![Session picker grouped by project](picker.png)

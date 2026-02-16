@@ -146,7 +146,8 @@ func startTtyd(session string) (int, error) {
 	}
 
 	// Bind ttyd to Tailscale IP only, with larger font for mobile
-	cmd := exec.Command("ttyd", "-i", tailscaleIP, "-p", fmt.Sprintf("%d", port), "-W", "-t", "fontSize=32", "tmux", "attach", "-t", session)
+	// -O: reject WebSocket connections from different origins (prevents cross-site WebSocket hijacking)
+	cmd := exec.Command("ttyd", "-i", tailscaleIP, "-p", fmt.Sprintf("%d", port), "-W", "-O", "-t", "fontSize=32", "tmux", "attach", "-t", session)
 	if err := cmd.Start(); err != nil {
 		return 0, err
 	}
@@ -351,7 +352,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
         </h2>
         {{range $sessions}}
         <div class="session-row">
-            <a class="session" href="/connect/{{.}}">{{.}}</a>
+            <a class="session" href="/connect/{{.}}?csrf={{$.CSRFToken}}">{{.}}</a>
             <form action="/kill/{{.}}" method="POST" style="margin:0;">
                 <input type="hidden" name="csrf" value="{{$.CSRFToken}}">
                 <button type="submit" class="kill-btn">✕</button>
@@ -373,6 +374,14 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
 func handleConnect(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
+
+	// Validate CSRF token (prevents cross-site ttyd spawning via img tags)
+	token := r.URL.Query().Get("csrf")
+	if subtle.ConstantTimeCompare([]byte(token), []byte(csrfToken)) != 1 {
+		http.Error(w, "invalid csrf token", http.StatusForbidden)
+		return
+	}
+
 	session := strings.TrimPrefix(r.URL.Path, "/connect/")
 	if session == "" {
 		http.Error(w, "no session specified", http.StatusBadRequest)

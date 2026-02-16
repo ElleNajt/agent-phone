@@ -1,6 +1,6 @@
 # agent-phone
 
-Access terminal sessions from your phone's browser. Works with Claude Code, or any CLI tool.
+Access terminal sessions from your phone's browser. Works with Claude Code, Codex, aider, or any CLI tool.
 
 **Warning:** This allows your phone to control your computer through your Tailnet. Use at your own peril and review the code if you're nervous. Consider running this on a dedicated coding VM instead of a computer with important secrets.
 
@@ -112,6 +112,7 @@ Add to your shell config (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
 alias claude='agent-tmux claude'
+alias codex='agent-tmux codex'
 alias aider='agent-tmux aider'
 # any other CLI tools you want phone access to
 ```

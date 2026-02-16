@@ -192,7 +192,6 @@ If you're already inside tmux, it creates a detached session and switches to it.
 
 - No auth within Tailnet (Tailnet access = full terminal access)
 - No HTTPS (relies on Tailscale's WireGuard encryption)
-- No per-session permissions (all sessions visible to all)
 
 ## Troubleshooting
 

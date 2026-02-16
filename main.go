@@ -8,33 +8,68 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 )
 
-// Track running ttyd instances: session name -> port
+// Track running ttyd instances
+type ttydInstance struct {
+	port int
+	cmd  *exec.Cmd
+}
+
 var (
-	ttydPorts   = make(map[string]int)
-	portMutex   sync.Mutex
-	nextPort    = 7700
-	tailscaleIP string
+	ttydInstances = make(map[string]*ttydInstance)
+	portMutex     sync.Mutex
+	nextPort      = 7700
+	tailscaleIP   string
 )
 
 func main() {
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/connect/", handleConnect)
 
-	// Get Tailscale IP
+	// Get Tailscale IP - fail if unavailable (security: never bind to all interfaces)
 	out, err := exec.Command("tailscale", "ip", "-4").Output()
-	var addr string
 	if err != nil {
-		addr = ":8090"
-		log.Printf("Warning: couldn't get Tailscale IP, binding to all interfaces")
-	} else {
-		tailscaleIP = strings.TrimSpace(string(out))
-		addr = tailscaleIP + ":8090"
+		log.Fatal("Tailscale IP not available - refusing to start. Ensure Tailscale is running and logged in.")
 	}
+	tailscaleIP = strings.TrimSpace(string(out))
+	if tailscaleIP == "" {
+		log.Fatal("Tailscale returned empty IP - refusing to start.")
+	}
+	addr := tailscaleIP + ":8090"
+
+	// Clean up orphaned ttyd processes every 30 seconds
+	go cleanupOrphanedTtyd()
 
 	log.Printf("Claude Phone picker running on http://%s", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
+// Clean up ttyd instances for sessions that no longer exist
+func cleanupOrphanedTtyd() {
+	for {
+		time.Sleep(30 * time.Second)
+
+		sessions, err := getTmuxSessions()
+		if err != nil {
+			continue
+		}
+		sessionSet := make(map[string]bool)
+		for _, s := range sessions {
+			sessionSet[s] = true
+		}
+
+		portMutex.Lock()
+		for name, inst := range ttydInstances {
+			if !sessionSet[name] {
+				log.Printf("Cleaning up ttyd for ended session %q", name)
+				inst.cmd.Process.Kill()
+				delete(ttydInstances, name)
+			}
+		}
+		portMutex.Unlock()
+	}
 }
 
 // List tmux sessions
@@ -59,25 +94,20 @@ func startTtyd(session string) (int, error) {
 	defer portMutex.Unlock()
 
 	// Already running?
-	if port, ok := ttydPorts[session]; ok {
-		return port, nil
+	if inst, ok := ttydInstances[session]; ok {
+		return inst.port, nil
 	}
 
 	port := nextPort
 	nextPort++
 
-	// Bind ttyd to Tailscale IP (or all interfaces if not available)
-	var cmd *exec.Cmd
-	if tailscaleIP != "" {
-		cmd = exec.Command("ttyd", "-i", tailscaleIP, "-p", fmt.Sprintf("%d", port), "-W", "tmux", "attach", "-t", session)
-	} else {
-		cmd = exec.Command("ttyd", "-p", fmt.Sprintf("%d", port), "-W", "tmux", "attach", "-t", session)
-	}
+	// Bind ttyd to Tailscale IP only
+	cmd := exec.Command("ttyd", "-i", tailscaleIP, "-p", fmt.Sprintf("%d", port), "-W", "tmux", "attach", "-t", session)
 	if err := cmd.Start(); err != nil {
 		return 0, err
 	}
 
-	ttydPorts[session] = port
+	ttydInstances[session] = &ttydInstance{port: port, cmd: cmd}
 	log.Printf("Started ttyd for session %q on port %d", session, port)
 	return port, nil
 }
@@ -149,14 +179,30 @@ func handleConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate session exists (also prevents injection - only real session names accepted)
+	sessions, err := getTmuxSessions()
+	if err != nil {
+		http.Error(w, "failed to list sessions", http.StatusInternalServerError)
+		return
+	}
+	valid := false
+	for _, s := range sessions {
+		if s == session {
+			valid = true
+			break
+		}
+	}
+	if !valid {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+
 	port, err := startTtyd(session)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Redirect to ttyd
-	// Use same host but different port
-	host := strings.Split(r.Host, ":")[0]
-	http.Redirect(w, r, fmt.Sprintf("http://%s:%d", host, port), http.StatusFound)
+	// Redirect to ttyd (use Tailscale IP, not client-provided Host header)
+	http.Redirect(w, r, fmt.Sprintf("http://%s:%d", tailscaleIP, port), http.StatusFound)
 }

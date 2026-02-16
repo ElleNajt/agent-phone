@@ -116,10 +116,25 @@ If you're already inside tmux, it creates a detached session and switches to it.
 
 ## Security
 
-- Picker binds to Tailscale IP only - not accessible from public internet
-- Only devices on your Tailscale network can connect
-- ttyd instances spawn on ports 7700+ (also bound to Tailscale IP)
-- No authentication beyond Tailscale - anyone on your tailnet can access
+**Assumptions:**
+
+- **Single-user Tailnet** - Anyone on your Tailnet gets full terminal access. There's no authentication beyond "can reach the Tailscale IP". Don't use this if you share your Tailnet with others.
+- **Tailscale is running** - The server refuses to start without it (fail-closed). Tailscale provides encryption (WireGuard) and network-level access control.
+- **Local machine is trusted** - Anyone who can create tmux sessions locally can make them accessible via phone.
+
+**What's protected:**
+
+- No binding to public interfaces (refuses to start if Tailscale unavailable)
+- No open redirects (redirects use hardcoded Tailscale IP)
+- No command injection (session names validated against actual tmux sessions)
+- Orphaned ttyd processes cleaned up automatically
+
+**What's NOT protected:**
+
+- No auth within Tailnet (Tailnet access = full terminal access)
+- No HTTPS (relies on Tailscale's WireGuard encryption)
+- No audit logging
+- No per-session permissions (all sessions visible to all)
 
 ## Troubleshooting
 

@@ -12,16 +12,26 @@ fi
 CMD="$1"
 shift
 
-# Word lists for random names (no overlap)
-ADJECTIVES=(swift bright calm quick sharp warm cool fresh bold gentle)
-NOUNS=(oak fox elm ray dew ash fern hawk moss pine)
+# Word lists for random names (little familiars)
+ADJECTIVES=(clever sleepy happy busy cozy gentle curious eager nimble quick)
+NOUNS=(otter panda fox rabbit owl mouse seal frog duck wren)
 
-# Pick random words
-ADJ=${ADJECTIVES[$RANDOM % ${#ADJECTIVES[@]}]}
-NOUN=${NOUNS[$RANDOM % ${#NOUNS[@]}]}
-
+# Generate unique session name (retry on collision)
 PROJECT=$(basename "$PWD")
-SESSION="${CMD}-${PROJECT}-${ADJ}-${NOUN}"
+for _ in {1..10}; do
+    ADJ=${ADJECTIVES[$RANDOM % ${#ADJECTIVES[@]}]}
+    NOUN=${NOUNS[$RANDOM % ${#NOUNS[@]}]}
+    SESSION="${CMD}-${PROJECT}-${ADJ}-${NOUN}"
+
+    if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+        break
+    fi
+done
+
+# Final check - if still colliding, append PID
+if tmux has-session -t "$SESSION" 2>/dev/null; then
+    SESSION="${SESSION}-$$"
+fi
 
 echo "Starting $CMD in tmux session: $SESSION"
 echo "Access from phone via agent-phone picker"

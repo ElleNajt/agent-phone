@@ -22,6 +22,7 @@ var (
 	ttydInstances = make(map[string]*ttydInstance)
 	portMutex     sync.Mutex
 	nextPort      = 7700
+	freePorts     []int // reclaimed ports to reuse
 	tailscaleIP   string
 )
 
@@ -66,7 +67,8 @@ func cleanupOrphanedTtyd() {
 			if !sessionSet[name] {
 				log.Printf("Cleaning up ttyd for ended session %q", name)
 				inst.cmd.Process.Kill()
-				inst.cmd.Wait() // reap zombie
+				inst.cmd.Wait()                          // reap zombie
+				freePorts = append(freePorts, inst.port) // reclaim port
 				delete(ttydInstances, name)
 			}
 		}
@@ -100,8 +102,15 @@ func startTtyd(session string) (int, error) {
 		return inst.port, nil
 	}
 
-	port := nextPort
-	nextPort++
+	// Reuse a free port or allocate a new one
+	var port int
+	if len(freePorts) > 0 {
+		port = freePorts[len(freePorts)-1]
+		freePorts = freePorts[:len(freePorts)-1]
+	} else {
+		port = nextPort
+		nextPort++
+	}
 
 	// Bind ttyd to Tailscale IP only, with larger font for mobile
 	cmd := exec.Command("ttyd", "-i", tailscaleIP, "-p", fmt.Sprintf("%d", port), "-W", "-t", "fontSize=32", "tmux", "attach", "-t", session)

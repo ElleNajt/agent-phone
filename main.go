@@ -255,7 +255,8 @@ func startTtyd(session string) (int, string, error) {
 
 	// Bind ttyd to Tailscale IP only, with larger font for mobile
 	// -c: require basic auth (protects against cross-origin attacks since browser won't send credentials)
-	cmd := exec.Command("ttyd", "-i", tailscaleIP, "-p", fmt.Sprintf("%d", port), "-W", "-c", credential, "-t", "fontSize=32", "tmux", "attach", "-t", session)
+	// -O: also check Origin header (defense in depth for future browser behavior changes)
+	cmd := exec.Command("ttyd", "-i", tailscaleIP, "-p", fmt.Sprintf("%d", port), "-W", "-O", "-c", credential, "-t", "fontSize=32", "tmux", "attach", "-t", session)
 	if err := cmd.Start(); err != nil {
 		return 0, "", err
 	}

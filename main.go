@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"os/exec"
 	"strings"
@@ -109,6 +110,18 @@ func startTtyd(session string) (int, error) {
 
 	ttydInstances[session] = &ttydInstance{port: port, cmd: cmd}
 	log.Printf("Started ttyd for session %q on port %d", session, port)
+
+	// Wait for ttyd to be ready (up to 2 seconds)
+	addr := fmt.Sprintf("%s:%d", tailscaleIP, port)
+	for i := 0; i < 20; i++ {
+		conn, err := net.DialTimeout("tcp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	return port, nil
 }
 

@@ -66,6 +66,7 @@ func cleanupOrphanedTtyd() {
 			if !sessionSet[name] {
 				log.Printf("Cleaning up ttyd for ended session %q", name)
 				inst.cmd.Process.Kill()
+				inst.cmd.Wait() // reap zombie
 				delete(ttydInstances, name)
 			}
 		}
@@ -107,6 +108,9 @@ func startTtyd(session string) (int, error) {
 	if err := cmd.Start(); err != nil {
 		return 0, err
 	}
+
+	// Wait in background to avoid zombie processes
+	go cmd.Wait()
 
 	ttydInstances[session] = &ttydInstance{port: port, cmd: cmd}
 	log.Printf("Started ttyd for session %q on port %d", session, port)

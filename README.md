@@ -180,7 +180,6 @@ If you're already inside tmux, it creates a detached session and switches to it.
 
 - **Single-user Tailnet** - Anyone on your Tailnet gets full terminal access. There's no authentication beyond "can reach the Tailscale IP". Don't use this if you share your Tailnet with others.
 - **Tailscale is running** - The server refuses to start without it (fail-closed). Tailscale provides encryption (WireGuard) and network-level access control.
-- **Local machine is trusted** - Anyone who can create tmux sessions locally can make them accessible via phone.
 
 **What's protected:**
 

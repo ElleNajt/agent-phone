@@ -400,6 +400,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleConnect(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	session := strings.TrimPrefix(r.URL.Path, "/connect/")
 	if session == "" {
 		http.Error(w, "no session specified", http.StatusBadRequest)
@@ -431,7 +432,8 @@ func handleConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Redirect to ttyd (use Tailscale IP, not client-provided Host header)
-	http.Redirect(w, r, fmt.Sprintf("http://%s:%d", tailscaleIP, port), http.StatusFound)
+	// Add cache-busting timestamp to prevent browser from caching old port redirects
+	http.Redirect(w, r, fmt.Sprintf("http://%s:%d/?t=%d", tailscaleIP, port, time.Now().UnixNano()), http.StatusFound)
 }
 
 // Get directory for a project by checking existing sessions

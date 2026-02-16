@@ -125,11 +125,31 @@ func startTtyd(session string) (int, error) {
 	return port, nil
 }
 
+// Group sessions by project (name format: cmd-PROJECT-adj-noun)
+// Project can contain hyphens, so we take everything between first and last two parts
+func groupSessionsByProject(sessions []string) map[string][]string {
+	groups := make(map[string][]string)
+	for _, s := range sessions {
+		parts := strings.Split(s, "-")
+		project := "other"
+		if len(parts) >= 4 {
+			// cmd-project-parts-adj-noun -> project is parts[1] to parts[len-2]
+			project = strings.Join(parts[1:len(parts)-2], "-")
+		} else if len(parts) >= 2 {
+			project = parts[1]
+		}
+		groups[project] = append(groups[project], s)
+	}
+	return groups
+}
+
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	sessions, err := getTmuxSessions()
 	if err != nil {
 		sessions = []string{}
 	}
+
+	groups := groupSessionsByProject(sessions)
 
 	tmpl := template.Must(template.New("index").Parse(`<!DOCTYPE html>
 <html>
@@ -147,6 +167,13 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
         h1 {
             font-size: 24px;
             margin-bottom: 20px;
+        }
+        h2 {
+            font-size: 18px;
+            color: #888;
+            margin: 24px 0 12px 0;
+            border-bottom: 1px solid #333;
+            padding-bottom: 8px;
         }
         .session {
             display: block;
@@ -170,9 +197,12 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 </head>
 <body>
     <h1>Claude Sessions</h1>
-    {{if .Sessions}}
-        {{range .Sessions}}
+    {{if .Groups}}
+        {{range $project, $sessions := .Groups}}
+        <h2>{{$project}}</h2>
+        {{range $sessions}}
         <a class="session" href="/connect/{{.}}">{{.}}</a>
+        {{end}}
         {{end}}
     {{else}}
         <p class="empty">No tmux sessions running</p>
@@ -181,7 +211,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 </html>`))
 
 	tmpl.Execute(w, map[string]interface{}{
-		"Sessions": sessions,
+		"Groups": groups,
 	})
 }
 

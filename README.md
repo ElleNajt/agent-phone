@@ -4,6 +4,7 @@ Access terminal sessions from your phone's browser. Works with Claude Code, or a
 
 ![Phone and computer showing the same Claude session](image_on_phone.png)
 ![Desktop view](image_on_computer.png)
+![Session picker grouped by project](picker.png)
 
 ## How it works
 

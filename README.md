@@ -12,6 +12,58 @@ Access terminal sessions from your phone's browser. Works with Claude Code, or a
 3. Open the picker from your phone and tap a session to connect via ttyd
 4. Full terminal in your phone browser - same session as your computer
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Your Mac                                │
+│                                                                 │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐       │
+│  │   tmux      │     │   tmux      │     │   tmux      │       │
+│  │  session 1  │     │  session 2  │     │  session 3  │       │
+│  │ (claude)    │     │ (claude)    │     │ (aider)     │       │
+│  └──────▲──────┘     └──────▲──────┘     └─────────────┘       │
+│         │                   │                                   │
+│         │ attach            │ attach                            │
+│         │                   │                                   │
+│  ┌──────┴──────┐     ┌──────┴──────┐                           │
+│  │    ttyd     │     │    ttyd     │  (spawned on demand)      │
+│  │   :7700     │     │   :7701     │                           │
+│  └──────▲──────┘     └──────▲──────┘                           │
+│         │                   │                                   │
+│         └────────┬──────────┘                                   │
+│                  │                                              │
+│           ┌──────┴──────┐                                       │
+│           │ agent-phone │  HTTP server                          │
+│           │    :8090    │  - lists sessions                     │
+│           │             │  - spawns ttyd on connect             │
+│           └──────▲──────┘  - redirects to ttyd                  │
+│                  │                                              │
+│                  │ bound to Tailscale IP only                   │
+└──────────────────┼──────────────────────────────────────────────┘
+                   │
+                   │ WireGuard encrypted tunnel
+                   │
+┌──────────────────┼──────────────────────────────────────────────┐
+│    Tailscale     │                                              │
+│    Network       │                                              │
+└──────────────────┼──────────────────────────────────────────────┘
+                   │
+                   │
+            ┌──────┴──────┐
+            │   Phone     │
+            │  (browser)  │
+            └─────────────┘
+```
+
+| Component | Role |
+|-----------|------|
+| **tmux** | Persistent terminal sessions that survive disconnects |
+| **ttyd** | Web server that exposes a terminal in a browser |
+| **agent-phone** | Glue: lists sessions, spawns ttyd, handles routing |
+| **Tailscale** | Encrypted network, access control (only your devices) |
+| **agent-tmux** | Wrapper to create uniquely-named tmux sessions |
+
 ## Requirements
 
 - [tmux](https://github.com/tmux/tmux)
